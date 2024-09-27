@@ -1,9 +1,6 @@
 package com.cuscatlan.payments.domain.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,8 +20,19 @@ public class Payment {
     private Long id;
     private Long orderId;
     private BigDecimal amount;
-    private String currency; // USD, EUR, etc.
-    private String status; // PENDING, COMPLETED, FAILED
+    private String currency;
+    private String paymentMethod;
+    private String transactionId;
+    private String email;
+    private Long customerId;
+    private String description;
+    private String status;
     private LocalDateTime createdAt;
+
+    @Embedded
+    private CardDetails cardDetails;
+
+    @Embedded
+    private BillingAddress billingAddress;
 
 }

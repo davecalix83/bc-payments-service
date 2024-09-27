@@ -1,17 +1,19 @@
 package com.cuscatlan.payments.application.service;
 
-import com.cuscatlan.payments.application.dto.OrderDto;
-import com.cuscatlan.payments.application.dto.PaymentRequestDto;
-import com.cuscatlan.payments.application.dto.PaymentResponseDto;
-import com.cuscatlan.payments.domain.exception.ExternalServiceException;
+import com.cuscatlan.payments.application.dto.*;
+import com.cuscatlan.payments.domain.exception.OrderNotFoundException;
+import com.cuscatlan.payments.domain.exception.PaymentNotFoundException;
 import com.cuscatlan.payments.domain.exception.PaymentProcessingException;
+import com.cuscatlan.payments.domain.model.BillingAddress;
+import com.cuscatlan.payments.domain.model.CardDetails;
 import com.cuscatlan.payments.domain.model.Payment;
 import com.cuscatlan.payments.infrastructure.external.OrderServiceClient;
 import com.cuscatlan.payments.infrastructure.repository.PaymentRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +25,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto) {
-        
+
         try {
             validateOrder(paymentRequestDto.getOrderId());
 
@@ -31,26 +33,28 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setStatus(paymentStatusHandler.determineStatus());
             Payment savedPayment = paymentRepository.save(payment);
             updateOrderStatus(paymentRequestDto.getOrderId(), payment.getStatus());
+            return createProcessPaymentResponse(savedPayment);
 
-            return createPaymentResponse(savedPayment);
-        } catch (PaymentProcessingException | ExternalServiceException e) {
+        } catch (PaymentProcessingException e) {
             return createErrorResponse("ERROR", e.getMessage());
-        } catch (Exception e) {
-            return createErrorResponse("ERROR", "An unexpected error occurred.");
         }
     }
 
+    private PaymentResponseDto createProcessPaymentResponse(Payment savedPayment) {
+        return PaymentResponseDto
+                .builder()
+                .paymentId(savedPayment.getId())
+                .status(savedPayment.getStatus())
+                .message(savedPayment.getDescription())
+                .processedAt(LocalDateTime.now())
+                .build();
+    }
+
     @Override
-    public PaymentResponseDto getPaymentStatus(Long paymentId) {
-        try {
-            Payment payment = paymentRepository.findById(paymentId)
-                    .orElseThrow(() -> new PaymentProcessingException("Payment not found for ID: " + paymentId));
-            return createPaymentResponse(payment);
-        } catch (PaymentProcessingException e) {
-            return createErrorResponse("ERROR", e.getMessage());
-        } catch (Exception e) {
-            return createErrorResponse("ERROR", "An unexpected error occurred while retrieving payment status.");
-        }
+    public PaymentDto getPaymentStatus(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+        return createPaymentResponse(payment);
     }
 
     private void validateOrder(Long orderId) {
@@ -64,32 +68,82 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private Payment createPayment(PaymentRequestDto paymentRequestDto) {
-        return Payment
-                .builder()
+
+        Payment payment = Payment.builder()
                 .orderId(paymentRequestDto.getOrderId())
                 .amount(paymentRequestDto.getAmount())
                 .currency(paymentRequestDto.getCurrency())
+                .paymentMethod(paymentRequestDto.getPaymentMethod())
+                .customerId(paymentRequestDto.getCustomerId())
+                .email(paymentRequestDto.getEmail())
+                .description(paymentRequestDto.getDescription())
+                .transactionId(paymentRequestDto.getTransactionId())
+                .status(paymentRequestDto.getPaymentStatus())
                 .createdAt(LocalDateTime.now())
                 .build();
+
+        CardDetails cardDetails = CardDetails.builder()
+                .cardNumber(paymentRequestDto.getCardDetails().getCardNumber())
+                .cardHolderName(paymentRequestDto.getCardDetails().getCardHolderName())
+                .expirationDate(paymentRequestDto.getCardDetails().getExpirationDate())
+                .securityCode(paymentRequestDto.getCardDetails().getSecurityCode())
+                .build();
+        payment.setCardDetails(cardDetails);
+
+        BillingAddress billingAddress = BillingAddress.builder()
+                .street(paymentRequestDto.getBillingAddress().getStreet())
+                .city(paymentRequestDto.getBillingAddress().getCity())
+                .state(paymentRequestDto.getBillingAddress().getState())
+                .postalCode(paymentRequestDto.getBillingAddress().getPostalCode())
+                .country(paymentRequestDto.getBillingAddress().getCountry())
+                .build();
+        payment.setBillingAddress(billingAddress);
+
+        return payment;
     }
+
 
     private void updateOrderStatus(Long orderId, String paymentStatus) {
         try {
+
             OrderDto orderDto = orderServiceClient.getOrderById(orderId).getBody();
+
+            if (orderDto == null) {
+                throw new OrderNotFoundException(orderId);
+            }
+
             orderDto.setStatus(paymentStatus);
             orderServiceClient.updateOrder(orderDto);
-        } catch (ExternalServiceException e) {
+
+        } catch (PaymentProcessingException e) {
             throw new PaymentProcessingException("Failed to update order status");
         }
     }
 
-    private PaymentResponseDto createPaymentResponse(Payment payment) {
-        return PaymentResponseDto
-                .builder()
-                .paymentId(payment.getId())
-                .status(payment.getStatus())
-                .processedAt(payment.getCreatedAt())
-                .message("Payment processed successfully.")
+    private PaymentDto createPaymentResponse(Payment payment) {
+        return PaymentDto.builder()
+                .orderId(payment.getOrderId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .paymentMethod(payment.getPaymentMethod())
+                .cardDetails(CardDetailsDto.builder()
+                        .cardNumber(payment.getCardDetails().getCardNumber())
+                        .cardHolderName(payment.getCardDetails().getCardHolderName())
+                        .expirationDate(payment.getCardDetails().getExpirationDate())
+                        .securityCode(payment.getCardDetails().getSecurityCode())
+                        .build())
+                .billingAddress(BillingAddressDto.builder()
+                        .street(payment.getBillingAddress().getStreet())
+                        .city(payment.getBillingAddress().getCity())
+                        .state(payment.getBillingAddress().getState())
+                        .postalCode(payment.getBillingAddress().getPostalCode())
+                        .country(payment.getBillingAddress().getCountry())
+                        .build())
+                .customerId(payment.getCustomerId())
+                .email(payment.getEmail())
+                .description(payment.getDescription())
+                .transactionId(payment.getTransactionId())
+                .paymentStatus(payment.getStatus())
                 .build();
     }
 

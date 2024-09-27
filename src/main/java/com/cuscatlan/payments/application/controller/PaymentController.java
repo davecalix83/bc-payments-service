@@ -1,5 +1,6 @@
 package com.cuscatlan.payments.application.controller;
 
+import com.cuscatlan.payments.application.dto.PaymentDto;
 import com.cuscatlan.payments.application.dto.PaymentRequestDto;
 import com.cuscatlan.payments.application.dto.PaymentResponseDto;
 import com.cuscatlan.payments.application.service.PaymentService;
@@ -22,8 +23,8 @@ public class PaymentController {
     }
 
     @GetMapping("/{paymentId}")
-    public ResponseEntity<PaymentResponseDto> getPaymentStatus(@PathVariable Long paymentId) {
-        PaymentResponseDto response = paymentService.getPaymentStatus(paymentId);
+    public ResponseEntity<PaymentDto> getPaymentStatus(@PathVariable Long paymentId) {
+        PaymentDto response = paymentService.getPaymentStatus(paymentId);
         return ResponseEntity.ok(response);
     }
 
