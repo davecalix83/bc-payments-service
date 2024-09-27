@@ -5,9 +5,8 @@ import org.springframework.stereotype.Component;
 import java.util.Random;
 
 @Component
-public class RandomPaymentStatusHandler implements PaymentStatusHandler{
+public class RandomPaymentStatusHandlerService {
 
-    @Override
     public String determineStatus() {
         return new Random().nextBoolean() ? "COMPLETED" : "FAILED";
     }
