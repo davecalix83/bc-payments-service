@@ -9,9 +9,8 @@ import com.cuscatlan.payments.domain.model.CardDetails;
 import com.cuscatlan.payments.domain.model.Payment;
 import com.cuscatlan.payments.infrastructure.external.OrderServiceClient;
 import com.cuscatlan.payments.infrastructure.repository.PaymentRepository;
-
 import java.time.LocalDateTime;
-
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,9 +26,10 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto) {
 
         try {
-            validateOrder(paymentRequestDto.getOrderId());
+            
+            OrderDto orderDto = validateOrder(paymentRequestDto.getOrderId());
 
-            Payment payment = createPayment(paymentRequestDto);
+            Payment payment = createPayment(paymentRequestDto, orderDto);
             payment.setStatus(paymentStatusHandler.determineStatus());
             Payment savedPayment = paymentRepository.save(payment);
             updateOrderStatus(paymentRequestDto.getOrderId(), payment.getStatus());
@@ -57,7 +57,7 @@ public class PaymentServiceImpl implements PaymentService {
         return createPaymentResponse(payment);
     }
 
-    private void validateOrder(Long orderId) {
+    private OrderDto validateOrder(Long orderId) {
         OrderDto orderDto = orderServiceClient.getOrderById(orderId).getBody();
         if (orderDto == null) {
             throw new PaymentProcessingException("Order not found for ID: " + orderId);
@@ -65,18 +65,19 @@ public class PaymentServiceImpl implements PaymentService {
         if ("PAID".equalsIgnoreCase(orderDto.getStatus())) {
             throw new PaymentProcessingException("Order has already been paid.");
         }
+        return orderDto;
     }
 
-    private Payment createPayment(PaymentRequestDto paymentRequestDto) {
+    private Payment createPayment(PaymentRequestDto paymentRequestDto, OrderDto orderDto) {
 
         Payment payment = Payment.builder()
-                .orderId(paymentRequestDto.getOrderId())
-                .amount(paymentRequestDto.getAmount())
+                .orderId(orderDto.getId())
+                .amount(orderDto.getTotalAmount())
                 .currency(paymentRequestDto.getCurrency())
                 .paymentMethod(paymentRequestDto.getPaymentMethod())
-                .customerId(paymentRequestDto.getCustomerId())
+                .customerId(orderDto.getCustomerId())
                 .email(paymentRequestDto.getEmail())
-                .description(paymentRequestDto.getDescription())
+                .description(paymentRequestDto.getDescription() + orderDto.getId())
                 .transactionId(paymentRequestDto.getTransactionId())
                 .status(paymentRequestDto.getPaymentStatus())
                 .createdAt(LocalDateTime.now())
@@ -102,21 +103,17 @@ public class PaymentServiceImpl implements PaymentService {
         return payment;
     }
 
-
     private void updateOrderStatus(Long orderId, String paymentStatus) {
+
+        OrderDto orderDto = Optional.ofNullable(orderServiceClient.getOrderById(orderId).getBody())
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        orderDto.setStatus(paymentStatus.equalsIgnoreCase("FAILED") ? orderDto.getStatus() : "PAID");
+
         try {
-
-            OrderDto orderDto = orderServiceClient.getOrderById(orderId).getBody();
-
-            if (orderDto == null) {
-                throw new OrderNotFoundException(orderId);
-            }
-
-            orderDto.setStatus(paymentStatus);
             orderServiceClient.updateOrder(orderDto);
-
         } catch (PaymentProcessingException e) {
-            throw new PaymentProcessingException("Failed to update order status");
+            throw new PaymentProcessingException("Failed to update order status for order ID: " + orderId);
         }
     }
 
