@@ -7,12 +7,25 @@ import com.cuscatlan.payments.infrastructure.external.OrderServiceClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Service responsible for updating the status of an order after payment processing.
+ * It retrieves the order details and modifies the order status based on the payment outcome.
+ */
 @Component
 @RequiredArgsConstructor
 public class OrderStatusUpdaterService {
 
     private final OrderServiceClient orderServiceClient;
 
+    /**
+     * Updates the status of an order based on the payment result.
+     * If the payment failed, the order status remains unchanged; otherwise, it is updated to "PAID".
+     * 
+     * @param orderId the ID of the order to update
+     * @param paymentStatus the status of the payment (either "FAILED" or another status indicating success)
+     * @throws OrderNotFoundException if the order with the specified ID is not found
+     * @throws PaymentProcessingException if there is an error updating the order status
+     */
     public void updateOrderStatus(Long orderId, String paymentStatus) {
         OrderDto orderDto = orderServiceClient.getOrderById(orderId).getBody();
         if (orderDto == null) {

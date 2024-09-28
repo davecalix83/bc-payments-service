@@ -7,8 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- *
- * @author hguzman
+ * Represents a standardized error response structure for the application.
+ * This class encapsulates the details of an error that occurs during processing,
+ * including the status, error message, and timestamp of when the error was processed.
  */
 @Data
 @Builder
@@ -16,7 +17,18 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ErrorResponse {
 
+    /**
+     * The status of the error, typically a string indicating the type of error.
+     */
     private String status;
+
+    /**
+     * A descriptive message providing details about the error.
+     */
     private String message;
+
+    /**
+     * The timestamp indicating when the error was processed.
+     */
     private LocalDateTime processedAt;
 }

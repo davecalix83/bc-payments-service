@@ -8,13 +8,14 @@ import com.cuscatlan.payments.domain.model.CardDetails;
 import com.cuscatlan.payments.domain.model.Payment;
 import com.cuscatlan.payments.infrastructure.repository.PaymentRepository;
 import com.cuscatlan.payments.shared.mapper.PaymentMapper;
-
 import java.time.LocalDateTime;
-
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+/**
+ * Implementation of the PaymentService interface that handles payment processing and status retrieval.
+ */
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
@@ -25,11 +26,18 @@ public class PaymentServiceImpl implements PaymentService {
     private final RandomPaymentStatusHandlerService randomPaymentStatusHandlerService;
     private final PaymentMapper paymentMapper;
 
+    /**
+     * Processes a payment based on the provided PaymentRequestDto.
+     * This method validates the order, creates a Payment entity, and updates the payment status.
+     * 
+     * @param paymentRequestDto the DTO containing payment request details
+     * @return a PaymentResponseDto with payment result details
+     * @throws PaymentProcessingException if any issue occurs during payment processing
+     */
     @Override
     public PaymentResponseDto processPayment(@NotNull PaymentRequestDto paymentRequestDto) {
 
         try {
-
             OrderDto orderDto = orderValidatorService.validateOrder(paymentRequestDto.getOrderId());
 
             Payment payment = createPayment(paymentRequestDto, orderDto);
@@ -43,6 +51,12 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    /**
+     * Creates a PaymentResponseDto with details about the processed payment.
+     * 
+     * @param savedPayment the Payment entity that was processed and saved
+     * @return a PaymentResponseDto containing the payment details
+     */
     private PaymentResponseDto createProcessPaymentResponse(@NotNull Payment savedPayment) {
         return PaymentResponseDto
                 .builder()
@@ -53,6 +67,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    /**
+     * Retrieves the status of a payment by its ID.
+     * 
+     * @param paymentId the ID of the payment to retrieve
+     * @return a PaymentDto containing the payment status details
+     * @throws PaymentNotFoundException if no payment with the specified ID is found
+     */
     @Override
     public PaymentDto getPaymentStatus(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
@@ -60,6 +81,13 @@ public class PaymentServiceImpl implements PaymentService {
         return createPaymentResponse(payment);
     }
 
+    /**
+     * Creates a Payment entity from the provided PaymentRequestDto and OrderDto.
+     * 
+     * @param paymentRequestDto the DTO containing the payment request details
+     * @param orderDto the DTO containing the order details
+     * @return a Payment entity representing the payment to be processed
+     */
     private Payment createPayment(@NotNull PaymentRequestDto paymentRequestDto, @NotNull OrderDto orderDto) {
         return Payment
                 .builder()
@@ -78,10 +106,23 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    /**
+     * Builds a description for the payment based on the payment request and order details.
+     * 
+     * @param paymentRequestDto the DTO containing the payment request details
+     * @param orderDto the DTO containing the order details
+     * @return a string description for the payment
+     */
     private @NotNull String buildDescription(@NotNull PaymentRequestDto paymentRequestDto, @NotNull OrderDto orderDto) {
         return paymentRequestDto.getDescription() + orderDto.getId();
     }
 
+    /**
+     * Creates a CardDetails entity from the provided PaymentRequestDto.
+     * 
+     * @param paymentRequestDto the DTO containing the card details
+     * @return a CardDetails entity containing the card information
+     */
     private CardDetails createCardDetails(@NotNull PaymentRequestDto paymentRequestDto) {
         CardDetailsDto cardDetailsDto = paymentRequestDto.getCardDetails();
         return CardDetails
@@ -93,6 +134,12 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    /**
+     * Creates a BillingAddress entity from the provided PaymentRequestDto.
+     * 
+     * @param paymentRequestDto the DTO containing the billing address details
+     * @return a BillingAddress entity containing the billing address information
+     */
     private BillingAddress createBillingAddress(@NotNull PaymentRequestDto paymentRequestDto) {
         BillingAddressDto billingAddressDto = paymentRequestDto.getBillingAddress();
         return BillingAddress
@@ -105,10 +152,13 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-
+    /**
+     * Creates a PaymentDto from a Payment entity.
+     * 
+     * @param payment the Payment entity to be mapped to a DTO
+     * @return a PaymentDto containing the payment details
+     */
     private PaymentDto createPaymentResponse(Payment payment) {
-
         return paymentMapper.toDto(payment);
-
     }
 }
