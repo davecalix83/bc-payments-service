@@ -32,4 +32,4 @@ This microservice manages payment processing, allowing clients to process paymen
 4. Run the application using your IDE or with `mvn spring-boot:run`.
 
 ## License
-This project is licensed under the MIT License.
+This project is licensed under the License Apache 2.0.
